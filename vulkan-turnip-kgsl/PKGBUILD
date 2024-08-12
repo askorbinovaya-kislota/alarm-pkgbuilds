@@ -1,0 +1,47 @@
+pkgname=vulkan-turnip-kgsl
+pkgver=24.1.5
+pkgrel=0
+pkgdesc="Mesa's Freedreno Vulkan ICD, with kgsl"
+url="https://www.mesa3d.org/"
+arch=(x86_64 aarch64)
+license=("MIT AND BSD-3-Clause AND SGI-B-2.0")
+depends=(vulkan-icd-loader gcc-libs zlib zstd libxcb libdrm libx11 libxshmfence
+         libxrandr expat wayland)
+makedepends=(meson wayland-protocols xorgproto glslang
+             python-mako python-setuptools)
+source=(
+  "https://mesa.freedesktop.org/archive/mesa-$pkgver.tar.xz"
+  wsi-termux-x11-v3.patch
+)
+
+sha256sums=('02761ffd965dd64b95421ebfca1191d73724aba00f30034009237564f34cf976'
+            '5c7f736123e092fe00bfd6c72a43e0f8dad246f03da7601f435324c027049992')
+
+prepare() {
+  cd mesa-$pkgver
+  patch -Np1 -i ../wsi-termux-x11-v3.patch
+}
+
+build() {
+  local meson_options=(
+    -D prefix=/usr
+    -D b_ndebug=true
+    -D gallium-drivers=
+    -D vulkan-drivers=freedreno
+    -D freedreno-kmds=msm,kgsl
+    -D platforms=x11,wayland
+    -D video-codecs=
+    --wrap-mode nofallback # disable building lua
+  )
+
+  meson setup mesa-$pkgver build/ "${meson_options[@]}"
+  meson compile -C build
+}
+
+package() {
+  meson install -C build --destdir "$pkgdir"
+
+  install -Dm644 mesa-$pkgver/docs/license.rst -t "$pkgdir/usr/share/licenses/$pkgname"
+  rm "$pkgdir/usr/share/drirc.d/00-mesa-defaults.conf"
+  rmdir "$pkgdir/usr/share/drirc.d"
+}
